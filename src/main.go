@@ -21,7 +21,9 @@ func (s *simpleServer) IsAlive() bool{
 	return true
 }
 
-func (s *simpleServer) Serve(w http.ResponseWriter, r *http.Request){}
+func (s *simpleServer) Serve(w http.ResponseWriter, r *http.Request){
+	s.proxy.ServeHTTP(w, r)
+}
 
 type Server interface{
 	Address() string
@@ -61,9 +63,21 @@ func handleErr(err error){
 	}
 }
 
-func (lb *LoadBalancer) getNextAvailableServer() Server{}
+func (lb *LoadBalancer) getNextAvailableServer() Server{
+	server:= lb.servers[lb.roundRobinCount%len(lb.servers)]
+	for !server.IsAlive(){
+		lb.roundRobinCount++
+		server= lb.servers[lb.roundRobinCount%len(lb.servers)]
+	}
+	lb.roundRobinCount++
+	return server
+}
 
-func (lb *LoadBalancer) serveProxy(w http.ResponseWriter, r *http.Request){}
+func (lb *LoadBalancer) serveProxy(w http.ResponseWriter, r *http.Request){
+	targetServer := lb.getNextAvailableServer()
+	fmt.Println("forwarding request to address %q\n", targetServer.Address())
+	targetServer.Serve(w, r)
+}
 
 func main(){
 	servers:= []Server{
